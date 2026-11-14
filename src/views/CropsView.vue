@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useFarmStore } from '@/stores/farmStore';
-import { Crop, CropFamily, WaterNeedLevel, CycleDuration } from '@/types';
+import { useAppStore } from '@/stores/appStore';
+import { Crop } from '@/types';
 import AppBadge from '@/components/common/AppBadge.vue';
 import AppButton from '@/components/common/AppButton.vue';
 
 const farmStore = useFarmStore();
+const appStore = useAppStore();
 
 const searchQuery = ref('');
 const selectedFamily = ref<string>('all');
@@ -20,6 +22,7 @@ const families = [
   { id: 'legumineuse', label: 'Légumineuses N₂' },
   { id: 'tubercule', label: 'Tubercules' },
   { id: 'maraichage', label: 'Maraîchage' },
+  { id: 'perenne', label: 'Pérennes & Plantain' },
 ];
 
 const filteredCrops = computed(() => {
@@ -238,11 +241,18 @@ const filteredCrops = computed(() => {
               </span>
               <h3 class="font-headline-sm text-headline-sm mt-1 font-bold">{{ selectedCrop.name }}</h3>
               <p class="font-label-md text-secondary-fixed">{{ selectedCrop.variety }}</p>
+              <p v-if="selectedCrop.scientificName" class="text-caption italic opacity-80">{{ selectedCrop.scientificName }}</p>
             </div>
           </div>
         </div>
 
         <div class="space-y-3">
+          <!-- Institution & Catalog Reference -->
+          <div v-if="selectedCrop.iradCatalogCode" class="flex items-center justify-between px-3 py-1.5 bg-surface-container rounded-lg text-caption">
+            <span class="font-mono text-primary font-bold">{{ selectedCrop.iradCatalogCode }}</span>
+            <span class="text-on-surface-variant">{{ selectedCrop.breedingInstitution || 'IRAD Cameroun' }}</span>
+          </div>
+
           <div class="p-3 bg-surface-container-low rounded-xl space-y-1">
             <span class="font-caption text-caption text-on-surface-variant uppercase tracking-wider block">Description agronomique</span>
             <p class="font-body-md text-body-md text-on-surface">{{ selectedCrop.description }}</p>
@@ -257,7 +267,7 @@ const filteredCrops = computed(() => {
               </span>
             </div>
             <div class="p-3 rounded-xl bg-surface-container-low">
-              <span class="font-caption text-caption text-on-surface-variant block">Prix indicatif Yaoundé</span>
+              <span class="font-caption text-caption text-on-surface-variant block">Prix indicatif Obala/Ydé</span>
               <span class="font-body-bold text-label-lg text-secondary">
                 {{ selectedCrop.marketPriceFcfaKg }} FCFA / kg
               </span>
@@ -265,11 +275,11 @@ const filteredCrops = computed(() => {
             <div class="p-3 rounded-xl bg-surface-container-low">
               <span class="font-caption text-caption text-on-surface-variant block">Besoin en eau global</span>
               <span class="font-body-bold text-label-lg text-tertiary">
-                {{ selectedCrop.waterNeedMm }} mm cumulés
+                {{ selectedCrop.waterNeedMm }} mm
               </span>
             </div>
             <div class="p-3 rounded-xl bg-surface-container-low">
-              <span class="font-caption text-caption text-on-surface-variant block">Impact azote (sol)</span>
+              <span class="font-caption text-caption text-on-surface-variant block">Bilan Azote N₂</span>
               <span
                 :class="[
                   'font-body-bold text-label-lg',
@@ -281,15 +291,38 @@ const filteredCrops = computed(() => {
             </div>
           </div>
 
-          <!-- Stress tolerance note -->
-          <div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 flex items-start gap-2.5">
-            <span class="material-symbols-outlined text-secondary text-[20px] mt-0.5">verified_user</span>
+          <!-- Critical water stage -->
+          <div v-if="selectedCrop.criticalWaterStage" class="p-2.5 rounded-xl bg-surface-container-low text-caption flex items-start gap-2">
+            <span class="material-symbols-outlined text-tertiary text-[18px] shrink-0">water_drop</span>
             <div>
-              <p class="font-label-md text-label-md text-on-surface font-semibold">Tolérance au stress hydrique</p>
-              <p class="font-caption text-caption text-on-surface-variant mt-0.5">
-                {{ selectedCrop.stressTolerance }}
-              </p>
+              <span class="font-semibold text-on-surface block">Stade critique d'alimentation en eau :</span>
+              <span class="text-on-surface-variant">{{ selectedCrop.criticalWaterStage }}</span>
             </div>
+          </div>
+
+          <!-- Disease resistances -->
+          <div v-if="selectedCrop.diseaseResistance && selectedCrop.diseaseResistance.length > 0" class="space-y-1">
+            <span class="font-caption text-caption text-on-surface-variant block">Résistances variétales IRAD :</span>
+            <div class="flex flex-wrap gap-1">
+              <span
+                v-for="(dis, idx) in selectedCrop.diseaseResistance"
+                :key="idx"
+                class="px-2 py-0.5 rounded-md bg-primary-fixed/20 text-primary font-label-md text-[11px]"
+              >
+                ✓ {{ dis }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Specific Agronomic Warnings -->
+          <div v-if="selectedCrop.agronomicWarnings && selectedCrop.agronomicWarnings.length > 0" class="p-3 rounded-xl bg-error-container/20 border border-error/30 text-caption space-y-1">
+            <div class="flex items-center gap-1.5 text-error font-semibold">
+              <span class="material-symbols-outlined text-[16px]">warning</span>
+              <span>Avertissements de terrain :</span>
+            </div>
+            <ul class="list-disc list-inside text-on-surface space-y-0.5">
+              <li v-for="(warn, wIdx) in selectedCrop.agronomicWarnings" :key="wIdx">{{ warn }}</li>
+            </ul>
           </div>
         </div>
 
@@ -302,6 +335,11 @@ const filteredCrops = computed(() => {
         >
           Intégrer dans mon scénario de rotation
         </AppButton>
+
+        <!-- Mandatory Legal Disclaimer -->
+        <p class="font-caption text-caption text-center text-on-surface-variant pt-2 border-t border-outline-variant/20">
+          {{ appStore.t('app.disclaimer') }}
+        </p>
       </div>
     </div>
   </div>

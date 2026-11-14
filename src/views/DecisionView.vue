@@ -423,6 +423,11 @@ const goToDetail = (id: string) => {
             </div>
           </div>
         </div>
+
+        <!-- Mandatory Legal Disclaimer -->
+        <p class="font-caption text-caption text-center text-on-surface-variant pt-2">
+          Estimation indicative, pas une prévision de rendement. Données NASA Earth (POWER, SMAP, IMERG) croisées aux référentiels IRAD.
+        </p>
       </div>
     </div>
   </div>

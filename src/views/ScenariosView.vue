@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFarmStore } from '@/stores/farmStore';
+import { useAppStore } from '@/stores/appStore';
 import { Crop } from '@/types';
+import { evaluateRotationScenario } from '@/services/scoringEngine';
 import AppBadge from '@/components/common/AppBadge.vue';
 import AppButton from '@/components/common/AppButton.vue';
 import AppGauge from '@/components/common/AppGauge.vue';
@@ -10,6 +12,7 @@ import AppModal from '@/components/common/AppModal.vue';
 
 const router = useRouter();
 const farmStore = useFarmStore();
+const appStore = useAppStore();
 
 const activeTab = ref<string>('scenario_a');
 
@@ -26,20 +29,39 @@ const selectScenario = (id: string) => {
 // Modal for changing crop in a phase
 const showCropModal = ref(false);
 const editingPhaseIndex = ref<number | null>(null);
+const modalSearch = ref('');
+
+const filteredModalCrops = computed(() => {
+  if (!modalSearch.value) return farmStore.crops;
+  const q = modalSearch.value.toLowerCase();
+  return farmStore.crops.filter(
+    (c) => c.name.toLowerCase().includes(q) || c.variety.toLowerCase().includes(q) || c.family.toLowerCase().includes(q)
+  );
+});
 
 const openCropSelector = (index: number) => {
   editingPhaseIndex.value = index;
+  modalSearch.value = '';
   showCropModal.value = true;
 };
 
 const assignCrop = (crop: Crop) => {
   if (editingPhaseIndex.value !== null && currentScenario.value.phases[editingPhaseIndex.value]) {
     currentScenario.value.phases[editingPhaseIndex.value].crop = crop;
-    // Recalculate dummy margin & balance
-    currentScenario.value.nitrogenBalanceKgHa = currentScenario.value.phases.reduce(
-      (sum, p) => sum + p.crop.nitrogenFixationKgHa,
-      0
-    );
+    currentScenario.value.phases[editingPhaseIndex.value].waterAdequacyPercent = crop.waterNeedLevel === 'faible' ? 92 : crop.waterNeedLevel === 'modere' ? 82 : 55;
+    currentScenario.value.phases[editingPhaseIndex.value].nitrogenBalanceKgHa = crop.nitrogenFixationKgHa;
+
+    // Live evaluate with pure agronomic engine & satellite features!
+    const res = evaluateRotationScenario(currentScenario.value.phases, farmStore.weights, farmStore.features);
+    currentScenario.value.overallScore = res.score;
+    currentScenario.value.nitrogenBalanceKgHa = res.nitrogenBalanceKgHa;
+    currentScenario.value.waterStressPercent = res.waterStressRiskPercent;
+    currentScenario.value.failureRiskPercent = res.failureRiskPercent;
+    currentScenario.value.radarScores = res.radarScores;
+    currentScenario.value.scoreExplanation.strengths = res.strengths;
+    currentScenario.value.scoreExplanation.weaknesses = res.weaknesses;
+    currentScenario.value.scoreExplanation.agronomicSummary = res.agronomicRecommendation;
+    currentScenario.value.scoreExplanation.dataSourceWarnings = res.varietyWarnings;
   }
   showCropModal.value = false;
 };
@@ -315,27 +337,41 @@ const goToDetail = (id: string) => {
       </div>
     </div>
 
-    <!-- Modal to change crop -->
-    <AppModal v-model="showCropModal" title="Sélectionner une variété pour cette phase">
-      <div class="space-y-2 max-h-96 overflow-y-auto no-scrollbar">
-        <div
-          v-for="c in farmStore.crops"
-          :key="c.id"
-          class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-between cursor-pointer transition-colors"
-          @click="assignCrop(c)"
-        >
-          <div>
-            <p class="font-body-bold text-label-lg text-on-surface">{{ c.name }}</p>
-            <p class="font-caption text-caption text-primary">{{ c.variety }} • {{ c.cycleDays }} jours</p>
-          </div>
-          <span
-            :class="[
-              'px-2 py-0.5 rounded-full text-caption font-semibold',
-              c.nitrogenFixationKgHa > 0 ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant',
-            ]"
+    <!-- Modal to change crop (24 IRAD Varieties) -->
+    <AppModal v-model="showCropModal" title="Catalogue IRAD Cameroun (24 Variétés)">
+      <div class="space-y-3">
+        <input
+          v-model="modalSearch"
+          type="text"
+          placeholder="Rechercher par nom, variété (ex: CMS 8704, TMS, Lori)..."
+          class="w-full px-3 py-2 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface text-body-md focus:outline-primary"
+        />
+
+        <div class="space-y-2 max-h-96 overflow-y-auto no-scrollbar">
+          <div
+            v-for="c in filteredModalCrops"
+            :key="c.id"
+            class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-between cursor-pointer transition-colors"
+            @click="assignCrop(c)"
           >
-            {{ c.nitrogenFixationKgHa > 0 ? `+${c.nitrogenFixationKgHa} N` : `${c.nitrogenFixationKgHa} N` }}
-          </span>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <p class="font-body-bold text-label-lg text-on-surface">{{ c.name }}</p>
+                <span v-if="c.iradCatalogCode" class="text-[10px] font-mono px-1.5 py-0.2 bg-surface-container text-primary rounded">
+                  {{ c.iradCatalogCode }}
+                </span>
+              </div>
+              <p class="font-caption text-caption text-primary">{{ c.variety }} • {{ c.cycleDays }} jours • {{ c.waterNeedMm }} mm</p>
+            </div>
+            <span
+              :class="[
+                'px-2 py-0.5 rounded-full text-caption font-semibold shrink-0 ml-2',
+                c.nitrogenFixationKgHa > 0 ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant',
+              ]"
+            >
+              {{ c.nitrogenFixationKgHa > 0 ? `+${c.nitrogenFixationKgHa} N` : `${c.nitrogenFixationKgHa} N` }}
+            </span>
+          </div>
         </div>
       </div>
     </AppModal>

@@ -1,227 +1,228 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useFarmStore } from '@/stores/farmStore';
+import { useAppStore } from '@/stores/appStore';
+import { SOURCE_MANIFEST, DatasetManifestEntry } from '@/data/sourceManifest';
 import AppBadge from '@/components/common/AppBadge.vue';
 
 const farmStore = useFarmStore();
+const appStore = useAppStore();
 
-const constellations = [
-  {
-    name: 'NASA GPM IMERG',
-    fullname: 'Integrated Multi-satellitE Retrievals for GPM',
-    resolution: '0.1° (~10 km) recalé 10m SRTM',
-    frequency: 'Toutes les 30 minutes',
-    metric: 'Pluie cumulée et risque de stress hydrique',
-    history: '20 ans (2004–2024)',
-    icon: 'rainy',
-    color: 'text-tertiary',
-  },
-  {
-    name: 'NASA SMAP',
-    fullname: 'Soil Moisture Active Passive Radar',
-    resolution: 'Radar micro-ondes bande L (3 km)',
-    frequency: 'Relecture tous les 2 à 3 jours',
-    metric: 'Humidité volumétrique de la terre (0–5 cm et RU)',
-    history: 'Depuis 2015',
-    icon: 'water_loss',
-    color: 'text-primary',
-  },
-  {
-    name: 'NASA POWER',
-    fullname: 'Prediction of Worldwide Energy Resources',
-    resolution: '0.5° × 0.5°',
-    frequency: 'Mise à jour journalière synchrone',
-    metric: 'Température à 2m, ensoleillement, évapotranspiration ET₀',
-    history: '40 ans de données météo',
-    icon: 'device_thermostat',
-    color: 'text-secondary',
-  },
-  {
-    name: 'MODIS & Sentinel-2',
-    fullname: 'Moderate Resolution Imaging Spectroradiometer',
-    resolution: '250m à 10m optique multispectrale',
-    frequency: 'Passe tous les 5 à 16 jours',
-    metric: 'Indice NDVI de vigueur foliaire et biomasse',
-    history: 'Continu',
-    icon: 'psychiatry',
-    color: 'text-primary',
-  },
-];
+const activeFilter = ref<'ALL' | 'TIER 1' | 'TIER 2' | 'EXCLUDED'>('ALL');
 
-const faqs = [
-  {
-    q: 'Comment sont calculées les marges nettes en FCFA ?',
-    a: 'Les cours de référence sont actualisés chaque semaine à partir des mercuriales du MINADER et des relevés des marchés de gros du 8ème à Yaoundé et d’Obala. Les coûts des semences homologuées IRAD et de la main-d’œuvre locale sont déduits.',
-  },
-  {
-    q: 'Les résolutions satellites sont-elles adaptées aux parcelles de moins de 1 hectare ?',
-    a: 'Oui. Le downscaling topographique s’appuie sur le modèle d’élévation SRTM à 10 mètres de résolution, ce qui permet de corriger le signal pluviométrique brut selon la pente et l’exposition de la parcelle paysanne.',
-  },
-  {
-    q: 'Que se passe-t-il en cas de coupure de réseau internet en brousse ?',
-    a: 'AgroPredict fonctionne en mode PWA complètement hors-ligne grâce à son cache local. Les données satellites et les matrices de décision du bassin Lékié restent disponibles même en zone blanche 2G/3G.',
-  },
-];
+const filteredManifest = ref<DatasetManifestEntry[]>(SOURCE_MANIFEST);
+
+const setFilter = (tier: 'ALL' | 'TIER 1' | 'TIER 2' | 'EXCLUDED') => {
+  activeFilter.value = tier;
+  if (tier === 'ALL') {
+    filteredManifest.value = SOURCE_MANIFEST;
+  } else if (tier === 'TIER 1') {
+    filteredManifest.value = SOURCE_MANIFEST.filter((d) => d.tier.includes('TIER 1'));
+  } else if (tier === 'TIER 2') {
+    filteredManifest.value = SOURCE_MANIFEST.filter((d) => d.tier.includes('TIER 2'));
+  } else {
+    filteredManifest.value = SOURCE_MANIFEST.filter((d) => d.tier.includes('EXCLUDED'));
+  }
+};
 </script>
 
 <template>
   <div class="px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-7xl mx-auto w-full">
-    <!-- Header with Provenance Badges -->
-    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-      <div class="max-w-3xl space-y-1.5">
-        <div class="flex items-center gap-2 flex-wrap">
-          <AppBadge variant="satellite" icon="satellite_alt">
-            NASA Applied Sciences Program
-          </AppBadge>
-          <AppBadge variant="primary" icon="verified">
-            Calibré IRAD Nkolbisson
-          </AppBadge>
-          <span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-caption text-caption">
-            v3.4.2 • 2025
-          </span>
+    <!-- Header Banner -->
+    <div class="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/30 shadow-sm space-y-3">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 text-primary font-label-md text-label-md tracking-wider uppercase">
+            <span class="material-symbols-outlined text-[18px]">satellite_alt</span>
+            <span>Transparence Scientifique &amp; Provenance Spatiale</span>
+          </div>
+          <h1 class="font-headline-lg text-headline-lg text-on-surface mt-1">
+            Sources de Données &amp; Manifeste NASA Earth
+          </h1>
+          <p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">
+            AgroPredict intègre directement les flux satellitaires de la NASA (POWER, IMERG, SMAP, SRTM, MODIS) et les modèles agronomiques de l'IRAD Cameroun pour la zone forestière bimodale (Lékié / Obala).
+          </p>
         </div>
-        <h1 class="font-display-lg text-headline-lg lg:text-display-lg text-on-surface tracking-tight">
-          Données &amp; Sources Satellitaires
-        </h1>
-        <p class="font-body-md sm:font-body-lg text-body-md sm:text-body-lg text-on-surface-variant leading-relaxed">
-          Transparence sur les constellations d'observation spatiale de la NASA, les résolutions et les modèles agronomiques étalonnés au Cameroun.
+
+        <a
+          href="https://www.earthdata.nasa.gov/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-variant border border-outline-variant/30 text-primary font-body-bold text-label-lg transition-colors cursor-pointer shrink-0 shadow-xs"
+        >
+          <span class="material-symbols-outlined text-[20px]">public</span>
+          <span>Portail NASA Earthdata</span>
+          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+        </a>
+      </div>
+
+      <!-- Mandatory Ethical Notice Banner -->
+      <div class="p-3.5 bg-primary-fixed/20 border border-primary-fixed rounded-xl flex items-center gap-3">
+        <span class="material-symbols-outlined text-primary text-[24px] shrink-0">verified_user</span>
+        <p class="font-body-md text-body-md text-on-surface">
+          <strong>Règle d'éthique agronomique :</strong> {{ appStore.t('app.disclaimer') }} Les calculs constituent une évaluation probabiliste d'adéquation agro-climatique.
         </p>
       </div>
-
-      <div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/30 shadow-xs flex items-center gap-3 shrink-0">
-        <div class="w-10 h-10 rounded-xl bg-surface-container-low flex items-center justify-center text-primary">
-          <span class="material-symbols-outlined text-[24px]">insights</span>
-        </div>
-        <div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            <span class="font-label-md text-label-md text-on-surface font-semibold">Flux NASA Synchrone</span>
-          </div>
-          <p class="font-caption text-caption text-on-surface-variant mt-0.5">Dernière passe : il y a 14 min</p>
-        </div>
-      </div>
     </div>
 
-    <!-- Overview Statement + Station Picture Grid (12 cols) -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-      <div class="md:col-span-8 bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-col justify-between space-y-4">
-        <div class="space-y-2 max-w-xl">
-          <div class="flex items-center gap-2 text-secondary font-label-md text-label-md uppercase tracking-wider">
-            <span class="material-symbols-outlined text-[18px]">biotech</span>
-            Méthodologie Agrométéorologique Hybride
-          </div>
-          <h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">
-            De l'orbite spatiale aux sillons d'Obala : relier la télédétection aux réalités locales.
-          </h2>
-          <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-            Les modèles AgroPredict ne reposent pas sur des extrapolations théoriques. Chaque flux satellitaire est corrigé statistiquement par les relevés des 14 stations automatiques de l'Institut de Recherche Agricole pour le Développement (IRAD) réparties entre le bassin du Mfoundi, la Lékié et l'Adamaoua.
-          </p>
-        </div>
-
-        <div class="pt-4 border-t border-outline-variant/20 flex flex-wrap items-center gap-6">
-          <div>
-            <div class="font-display-lg text-headline-lg text-primary font-bold">20 ans</div>
-            <div class="font-caption text-caption text-on-surface-variant">Historique continu (2004–2024)</div>
-          </div>
-          <div>
-            <div class="font-display-lg text-headline-lg text-secondary font-bold">0.1° → 10m</div>
-            <div class="font-caption text-caption text-on-surface-variant">Downscaling relief SRTM</div>
-          </div>
-          <div>
-            <div class="font-display-lg text-headline-lg text-tertiary font-bold">98.2%</div>
-            <div class="font-caption text-caption text-on-surface-variant">Corrélation pluviomètres IRAD</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Station Image Card (4 cols) -->
-      <div class="md:col-span-4 bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/30 shadow-sm flex flex-col">
-        <div class="relative h-44 w-full">
-          <img
-            class="w-full h-full object-cover"
-            alt="Station IRAD Nkolbisson"
-            src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/85 via-transparent to-transparent flex items-end p-4">
-            <div class="text-inverse-on-surface">
-              <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-surface-container-lowest/30 backdrop-blur-sm">
-                Site de Calibration
-              </span>
-              <p class="font-body-bold text-label-lg mt-0.5">Station IRAD • Nkolbisson</p>
-            </div>
-          </div>
-        </div>
-        <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
-          <p class="font-caption text-caption text-on-surface-variant">
-            Pluviomètres à augets basculeurs et sondes TDR capacitives enfouies à 10 cm, 20 cm et 40 cm pour la calibration fine des modèles.
-          </p>
-          <div class="flex items-center justify-between pt-1 text-primary font-body-bold text-caption">
-            <span>Lat: 3°52' N • Lon: 11°27' E</span>
-            <span class="material-symbols-outlined text-[16px]">location_on</span>
-          </div>
-        </div>
-      </div>
+    <!-- Tier Filter Tabs -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1">
+      <button
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl font-label-md text-label-md transition-all cursor-pointer select-none',
+          activeFilter === 'ALL'
+            ? 'bg-primary text-on-primary font-bold shadow-sm'
+            : 'bg-surface-container hover:bg-surface-container-high text-on-surface',
+        ]"
+        @click="setFilter('ALL')"
+      >
+        Toutes les sources ({{ SOURCE_MANIFEST.length }})
+      </button>
+      <button
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl font-label-md text-label-md transition-all cursor-pointer select-none',
+          activeFilter === 'TIER 1'
+            ? 'bg-primary text-on-primary font-bold shadow-sm'
+            : 'bg-surface-container hover:bg-surface-container-high text-on-surface',
+        ]"
+        @click="setFilter('TIER 1')"
+      >
+        TIER 1 — Scoring Moteur (8)
+      </button>
+      <button
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl font-label-md text-label-md transition-all cursor-pointer select-none',
+          activeFilter === 'TIER 2'
+            ? 'bg-primary text-on-primary font-bold shadow-sm'
+            : 'bg-surface-container hover:bg-surface-container-high text-on-surface',
+        ]"
+        @click="setFilter('TIER 2')"
+      >
+        TIER 2 — Alertes &amp; Contexte (1)
+      </button>
+      <button
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl font-label-md text-label-md transition-all cursor-pointer select-none',
+          activeFilter === 'EXCLUDED'
+            ? 'bg-primary text-on-primary font-bold shadow-sm'
+            : 'bg-surface-container hover:bg-surface-container-high text-on-surface',
+        ]"
+        @click="setFilter('EXCLUDED')"
+      >
+        Bases Exclues / Non-applicables (5)
+      </button>
     </div>
 
-    <!-- 4 Core Constellations Grid -->
-    <div>
-      <h3 class="font-headline-sm text-headline-sm text-on-surface mb-3">
-        Constellations Satellitaires Mobilisées
-      </h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          v-for="c in constellations"
-          :key="c.name"
-          class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/30 shadow-xs flex flex-col justify-between space-y-3"
-        >
-          <div class="space-y-2">
-            <div class="w-10 h-10 rounded-xl bg-surface-container-low flex items-center justify-center" :class="c.color">
-              <span class="material-symbols-outlined text-[22px]">{{ c.icon }}</span>
-            </div>
+    <!-- Manifest Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div
+        v-for="ds in filteredManifest"
+        :key="ds.id"
+        :class="[
+          'p-5 rounded-2xl border transition-all flex flex-col justify-between',
+          ds.status === 'active'
+            ? 'bg-surface-container-lowest border-outline-variant/30 shadow-xs hover:border-primary/50'
+            : ds.status === 'integrated_baseline'
+            ? 'bg-surface-container-lowest border-secondary/30'
+            : 'bg-surface-container-low border-dashed border-outline-variant/50 opacity-85',
+        ]"
+      >
+        <div class="space-y-3">
+          <div class="flex items-start justify-between gap-2">
             <div>
-              <h4 class="font-body-bold text-label-lg text-on-surface">{{ c.name }}</h4>
-              <p class="font-caption text-[11px] text-on-surface-variant leading-tight">{{ c.fullname }}</p>
+              <span
+                :class="[
+                  'px-2.5 py-0.5 rounded-full font-label-md text-[11px] font-semibold uppercase tracking-wider',
+                  ds.tier.includes('TIER 1')
+                    ? 'bg-primary-fixed text-primary'
+                    : ds.tier.includes('TIER 2')
+                    ? 'bg-secondary-fixed text-secondary'
+                    : 'bg-surface-container-highest text-on-surface-variant',
+                ]"
+              >
+                {{ ds.tier }}
+              </span>
+              <h3 class="font-headline-sm text-headline-sm text-on-surface mt-1.5 font-bold">{{ ds.name }}</h3>
+              <p class="font-caption text-caption text-on-surface-variant">{{ ds.agency }}</p>
             </div>
-            <p class="font-caption text-caption text-on-surface pt-1">
-              {{ c.metric }}
-            </p>
+
+            <a
+              :href="ds.accessUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors"
+              :title="'Consulter ' + ds.name"
+            >
+              <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+            </a>
           </div>
 
-          <div class="pt-2 border-t border-outline-variant/20 text-[11px] text-on-surface-variant space-y-1">
+          <div class="p-3 bg-surface-container-low rounded-xl text-caption space-y-1">
             <div class="flex justify-between">
-              <span>Résolution :</span>
-              <strong class="text-on-surface">{{ c.resolution }}</strong>
+              <span class="text-on-surface-variant">Résolution spatiale :</span>
+              <span class="font-semibold text-on-surface">{{ ds.spatialResolution }}</span>
             </div>
             <div class="flex justify-between">
-              <span>Fréquence :</span>
-              <strong class="text-on-surface">{{ c.frequency }}</strong>
+              <span class="text-on-surface-variant">Fréquence temporelle :</span>
+              <span class="font-semibold text-on-surface">{{ ds.temporalResolution }}</span>
             </div>
+            <div class="flex justify-between">
+              <span class="text-on-surface-variant">Zone couverte :</span>
+              <span class="font-semibold text-on-surface">{{ ds.targetFootprint }}</span>
+            </div>
+          </div>
+
+          <p class="font-body-md text-body-md text-on-surface">
+            {{ ds.relevanceToScoring }}
+          </p>
+
+          <div v-if="ds.engineParameters && ds.engineParameters.length > 0" class="flex flex-wrap gap-1">
+            <span
+              v-for="(param, pIdx) in ds.engineParameters"
+              :key="pIdx"
+              class="px-2 py-0.5 rounded bg-surface-container font-mono text-[11px] text-on-surface-variant"
+            >
+              {{ param }}
+            </span>
+          </div>
+
+          <div class="pt-2 text-caption text-on-surface-variant border-t border-outline-variant/20">
+            <p><strong>Limites connues :</strong> {{ ds.knownLimitations }}</p>
+            <p class="mt-0.5"><strong>Authentification :</strong> {{ ds.authenticationRequirement }}</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- FAQ Accordion / Cards -->
-    <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/30 shadow-sm space-y-4">
-      <h3 class="font-headline-sm text-headline-sm text-on-surface">Foire Aux Questions Méthodologiques</h3>
-      <div class="space-y-3">
-        <div
-          v-for="(faq, i) in faqs"
-          :key="i"
-          class="p-4 rounded-xl bg-surface-container-low space-y-1"
-        >
-          <h4 class="font-body-bold text-label-lg text-primary flex items-center gap-2">
-            <span class="material-symbols-outlined text-[18px]">help</span>
-            {{ faq.q }}
-          </h4>
-          <p class="font-body-md text-caption sm:text-body-md text-on-surface-variant pl-6">
-            {{ faq.a }}
+    <!-- Footprint Calibration Section -->
+    <div class="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/30 shadow-sm space-y-4">
+      <h2 class="font-headline-md text-headline-md text-on-surface font-bold">
+        Calibrage Territorial : Lékié, Obala &amp; Haute-Sanaga
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low">
+          <span class="font-label-md text-primary font-bold block mb-1">Régime pluviométrique bimodal</span>
+          <p class="font-caption text-caption text-on-surface-variant">
+            Deux saisons des pluies distinctes (mars-juin: 670mm cumulés; sept-nov: 750mm cumulés) et deux coupures sèches. IMERG permet de planifier le calage précis des semis.
+          </p>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low">
+          <span class="font-label-md text-primary font-bold block mb-1">Pédologie ferrallitique IRAD</span>
+          <p class="font-caption text-caption text-on-surface-variant">
+            Sols rouges profonds (Ferralsols) acides (pH 5.2 - 5.8) riches en oxydes de fer et aluminium mais carencés en phosphore assimilable. Les légumineuses sont indispensables.
+          </p>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low">
+          <span class="font-label-md text-primary font-bold block mb-1">Pente &amp; érosion SRTM</span>
+          <p class="font-caption text-caption text-on-surface-variant">
+            Topographie ondulée de collines (pentes 3% à 8%). Le couvert végétal dense continu (Landsat NDVI > 0.60) est obligatoire pour empêcher le lessivage superficiel.
           </p>
         </div>
       </div>
     </div>
-
-    <p class="font-caption text-caption text-center text-on-surface-variant">
-      Estimation indicative, pas une prévision de rendement.
-    </p>
   </div>
 </template>

@@ -1,3 +1,5 @@
+export * from './features';
+
 export type CropFamily = 'cereale' | 'legumineuse' | 'tubercule' | 'maraichage' | 'perenne';
 
 export type WaterNeedLevel = 'faible' | 'modere' | 'eleve';
@@ -6,6 +8,7 @@ export type CycleDuration = 'court' | 'moyen' | 'long'; // <90j, 90-120j, >150j
 export interface Crop {
   id: string;
   name: string;
+  scientificName?: string;
   variety: string;
   family: CropFamily;
   cycleDays: number;
@@ -18,6 +21,15 @@ export interface Crop {
   description: string;
   favorableSeasons: ('mars_juin' | 'sept_nov')[];
   stressTolerance: string;
+  // Extended IRAD variety attributes
+  iradCatalogCode?: string;
+  breedingInstitution?: string; // 'IRAD Cameroun' | 'IITA' | 'AfricaRice' | 'CIMMYT'
+  criticalWaterStage?: string;
+  diseaseResistance?: string[];
+  agronomicWarnings?: string[];
+  localSuitabilityScore?: number; // 0-100
+  _source?: string;
+  _quality?: 'high' | 'medium' | 'fallback';
 }
 
 export interface PlotCoordinates {
@@ -52,7 +64,7 @@ export interface FarmPlot {
 }
 
 export interface SatelliteSource {
-  id: 'gpm_imerg' | 'smap' | 'power' | 'modis';
+  id: 'gpm_imerg' | 'smap' | 'power' | 'modis' | 'srtm' | 'landsat' | 'gaez' | 'era5' | 'ecostress';
   name: string;
   fullName: string;
   metric: string;
@@ -62,6 +74,8 @@ export interface SatelliteSource {
   lastPassAgo: string;
   resolution: string;
   badgeColor: string;
+  portalUrl?: string;
+  provider?: string;
 }
 
 export interface ClimateTelemetry {
@@ -80,6 +94,8 @@ export interface ClimateTelemetry {
     rainCurrentYearMm: number;
     cropDemandMm: number;
   }[];
+  _source?: string;
+  _quality?: 'high' | 'medium' | 'fallback';
 }
 
 export interface RotationPhase {
@@ -109,24 +125,31 @@ export interface RotationScenario {
   failureRiskPercent: number;
   phases: RotationPhase[];
   radarScores: {
-    waterSecurity: number;      // 0-100
-    climateMatch: number;       // 0-100
-    soilFertility: number;      // 0-100
-    foodDiversification: number;// 0-100
-    fcfaMargin: number;         // 0-100
+    waterSecurity: number;       // 0-100
+    climateMatch: number;        // 0-100
+    soilFertility: number;       // 0-100
+    foodDiversification: number; // 0-100
+    fcfaMargin: number;          // 0-100
+    coverContinuity?: number;    // 0-100 (new)
+    pestBreak?: number;          // 0-100 (new)
   };
   scoreExplanation: {
     strengths: string[];
     weaknesses: string[];
     agronomicSummary: string;
+    dataSourceWarnings?: string[];
   };
+  _source?: string;
 }
 
 export interface ScoringWeights {
-  waterSecurity: number; // e.g. 35%
-  fcfaMargin: number;    // e.g. 30%
-  soilFertility: number; // e.g. 20%
-  foodSecurity: number;  // e.g. 15%
+  waterSecurity: number;      // e.g. 25-35%
+  fcfaMargin: number;         // e.g. 20-30%
+  soilFertility: number;      // e.g. 15-20%
+  foodSecurity: number;       // e.g. 10-15%
+  climateMatch?: number;      // e.g. 10-15%
+  coverContinuity?: number;   // e.g. 5-10% (erosion & bare ground penalty)
+  pestBreak?: number;         // e.g. 5-10% (disease interruption)
 }
 
 export interface UserProfile {

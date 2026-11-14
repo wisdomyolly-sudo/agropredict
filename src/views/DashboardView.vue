@@ -24,9 +24,16 @@ const navigateTo = (path: string) => {
           <AppBadge variant="success" :pulse="true">
             {{ appStore.t('dashboard.campaign') }}
           </AppBadge>
-          <AppBadge variant="satellite" icon="satellite_alt">
-            {{ appStore.t('dashboard.nasaSync') }}
-          </AppBadge>
+          <button
+            type="button"
+            class="cursor-pointer transition-transform active:scale-95"
+            @click="farmStore.refreshLiveTelemetry"
+            :title="'Cliquer pour interroger en direct les serveurs NASA POWER pour Obala'"
+          >
+            <AppBadge variant="satellite" icon="satellite_alt" :pulse="farmStore.isLoadingTelemetry">
+              {{ farmStore.isLoadingTelemetry ? 'Interrogation NASA POWER...' : 'NASA POWER & GPM IMERG (Live Sync)' }}
+            </AppBadge>
+          </button>
         </div>
         <h1 class="font-display-lg text-headline-lg lg:text-display-lg text-on-surface tracking-tight">
           {{ appStore.t('dashboard.greeting', { name: farmStore.user.name.split(' ')[0] }) }}

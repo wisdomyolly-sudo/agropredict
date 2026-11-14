@@ -8,7 +8,8 @@ import {
   MOCK_USER,
   MOCK_SATELLITE_SOURCES,
 } from '@/data/mockData';
-import { FarmPlot, Crop, RotationScenario, ScoringWeights, UserProfile, SatelliteSource } from '@/types';
+import { FarmPlot, Crop, RotationScenario, ScoringWeights, UserProfile, SatelliteSource, RotationEvaluationFeatures } from '@/types';
+import { FeatureExtractor } from '@/services/featureExtractor';
 
 export const useFarmStore = defineStore('farm', () => {
   const activePlot = ref<FarmPlot>({ ...MOCK_PLOT });
@@ -17,13 +18,18 @@ export const useFarmStore = defineStore('farm', () => {
   const scenarios = ref<RotationScenario[]>([...MOCK_SCENARIOS]);
   const satelliteSources = ref<SatelliteSource[]>([...MOCK_SATELLITE_SOURCES]);
   const user = ref<UserProfile>({ ...MOCK_USER });
+  const features = ref<RotationEvaluationFeatures>(FeatureExtractor.getDefaultFeatures());
+  const isLoadingTelemetry = ref(false);
 
-  // Weights for decision comparator (sums to 100%)
+  // Configurable weights for decision comparator
   const weights = ref<ScoringWeights>({
-    waterSecurity: 35,
-    fcfaMargin: 30,
+    waterSecurity: 25,
+    fcfaMargin: 25,
     soilFertility: 20,
-    foodSecurity: 15,
+    foodSecurity: 10,
+    climateMatch: 10,
+    coverContinuity: 5,
+    pestBreak: 5,
   });
 
   const activeScenarioId = ref<string>('scenario_a');
@@ -38,19 +44,28 @@ export const useFarmStore = defineStore('farm', () => {
 
   // Calculate dynamically weighted score for any scenario based on current sliders
   const calculateWeightedScore = (scenario: RotationScenario) => {
-    const totalWeight =
-      weights.value.waterSecurity +
-      weights.value.fcfaMargin +
-      weights.value.soilFertility +
-      weights.value.foodSecurity;
+    const wWater = weights.value.waterSecurity || 25;
+    const wMargin = weights.value.fcfaMargin || 25;
+    const wSoil = weights.value.soilFertility || 20;
+    const wFood = weights.value.foodSecurity || 10;
+    const wClimate = weights.value.climateMatch || 10;
+    const wCover = weights.value.coverContinuity || 5;
+    const wPest = weights.value.pestBreak || 5;
 
+    const totalWeight = wWater + wMargin + wSoil + wFood + wClimate + wCover + wPest;
     if (totalWeight === 0) return scenario.overallScore;
 
+    const coverScore = scenario.radarScores.coverContinuity || 75;
+    const pestScore = scenario.radarScores.pestBreak || 80;
+
     const weighted =
-      (scenario.radarScores.waterSecurity * weights.value.waterSecurity +
-        scenario.radarScores.fcfaMargin * weights.value.fcfaMargin +
-        scenario.radarScores.soilFertility * weights.value.soilFertility +
-        scenario.radarScores.foodDiversification * weights.value.foodSecurity) /
+      (scenario.radarScores.waterSecurity * wWater +
+        scenario.radarScores.fcfaMargin * wMargin +
+        scenario.radarScores.soilFertility * wSoil +
+        scenario.radarScores.foodDiversification * wFood +
+        scenario.radarScores.climateMatch * wClimate +
+        coverScore * wCover +
+        pestScore * wPest) /
       totalWeight;
 
     return Math.round(weighted);
@@ -62,15 +77,40 @@ export const useFarmStore = defineStore('farm', () => {
 
   const resetWeights = () => {
     weights.value = {
-      waterSecurity: 35,
-      fcfaMargin: 30,
+      waterSecurity: 25,
+      fcfaMargin: 25,
       soilFertility: 20,
-      foodSecurity: 15,
+      foodSecurity: 10,
+      climateMatch: 10,
+      coverContinuity: 5,
+      pestBreak: 5,
     };
   };
 
   const updatePlot = (updated: Partial<FarmPlot>) => {
     activePlot.value = { ...activePlot.value, ...updated };
+  };
+
+  /**
+   * Refresh telemetry by executing live queries to NASA POWER and calibrated layers
+   */
+  const refreshLiveTelemetry = async () => {
+    isLoadingTelemetry.value = true;
+    try {
+      const extracted = await FeatureExtractor.extractFeatures(
+        activePlot.value.coordinates.lat,
+        activePlot.value.coordinates.lng
+      );
+      features.value = extracted;
+
+      climate.value.temperatureAvgC = extracted.climate.meanTemperatureC;
+      climate.value.rainfall7dMm = Math.round(extracted.climate.seasonalRainfallMm / 14);
+      climate.value.soilMoistureSmapPercent = extracted.soil.surfaceMoisturePercent;
+      climate.value.soilMoistureRootPercent = extracted.soil.rootZoneMoisturePercent;
+      climate.value.ndviVigorIndex = extracted.cover.currentNdvi;
+    } finally {
+      isLoadingTelemetry.value = false;
+    }
   };
 
   return {
@@ -80,6 +120,8 @@ export const useFarmStore = defineStore('farm', () => {
     scenarios,
     satelliteSources,
     user,
+    features,
+    isLoadingTelemetry,
     weights,
     activeScenarioId,
     activeScenario,
@@ -88,5 +130,6 @@ export const useFarmStore = defineStore('farm', () => {
     setWeights,
     resetWeights,
     updatePlot,
+    refreshLiveTelemetry,
   };
 });
